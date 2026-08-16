@@ -67,6 +67,13 @@ public sealed class FileOperationsUtil : IFileOperationsUtil
         if (filePath == null)
             throw new InvalidOperationException("Figma OpenAPI document download failed.");
 
+        // Figma's source currently contains whitespace-only first lines in literal block scalars.
+        // They are valid empty lines, but YamlDotNet rejects the trailing indentation.
+        string yaml = await File.ReadAllTextAsync(filePath, cancellationToken);
+        string normalizedYaml = string.Join(Environment.NewLine,
+            yaml.ReplaceLineEndings("\n").Split('\n').Select(static line => string.IsNullOrWhiteSpace(line) ? string.Empty : line));
+        await File.WriteAllTextAsync(filePath, normalizedYaml, cancellationToken);
+
         string targetFilePath = Path.Combine(gitDirectory, "openapi.json");
         await _yamlUtil.SaveAsJson(filePath, targetFilePath, cancellationToken: cancellationToken);
 
